@@ -61,8 +61,68 @@ Colors are written as hex strings (`RRGGBB`). Brightness is an integer 0–255.
 ### Permissions
 `/dev/input/event*` requires membership in the `input` group, or root. `/sys/class/leds/system76::kbd_backlight/` requires root or udev rules to be writable by the user.
 
-### Planned Features
-- **Typing speed reactive brightness** — brightness ramps up with typing cadence, fades when idle
-- **Per-zone color effects** — e.g. ripple from center outward on keypress
-- **Configurable profiles** — idle color, active color, fade time, decay rate
-- **Systemd user service** — auto-start on login, no root required (via udev rule)
+## Project Plan
+
+### Prior Art
+Two existing Python projects were reviewed for reference:
+
+- **[keyboard-color-switcher](https://github.com/ahoneybun/keyboard-color-switcher)** — GTK GUI for setting static zone colors. Good reference for the sysfs abstraction layer (`KeyboardBacklight` class, `Position` enum, `read_file`/`write_file` helpers). Last active 2024.
+- **[System76-Backlight-Manager-cli](https://github.com/JeffLabonte/System76-Backlight-Manager-cli)** — CLI with breathe/static modes and model-aware path resolution. Good reference for the `breathe()` ramp-up/ramp-down pattern and service structure.
+
+Neither project reacts to live input — that's the gap `kbd-pulse` fills.
+
+### Module Structure
+
+```
+kbd-pulse/
+├── kbd_pulse/
+│   ├── __init__.py
+│   ├── __main__.py          # entrypoint, arg parsing, daemon loop
+│   ├── backlight.py         # sysfs read/write, zone abstraction
+│   ├── input_watcher.py     # evdev event loop, keypress detection
+│   ├── animator.py          # brightness/color transitions, fade logic
+│   └── config.py            # load/parse config file (TOML)
+├── systemd/
+│   └── kbd-pulse.service    # user systemd service unit
+├── udev/
+│   └── 99-kbd-pulse.rules   # udev rules for unprivileged sysfs access
+├── pyproject.toml
+└── CLAUDE.md
+```
+
+### Implementation Phases
+
+#### Phase 1 — Core backlight control
+- `backlight.py`: detect zones from sysfs, read/write brightness and color per zone
+- Graceful fallback if a zone file doesn't exist (single-zone keyboards)
+- Unit test with mocked sysfs paths (tmp dirs)
+
+#### Phase 2 — Input watching
+- `input_watcher.py`: use `evdev` to find the keyboard device by name (`AT Translated Set 2 keyboard`), listen for `EV_KEY` down events
+- Emit a timestamp stream for each keypress
+- Handle device disconnect/reconnect gracefully
+
+#### Phase 3 — Reactive animation
+- `animator.py`: maintain a rolling keypress rate (keypresses/sec over a sliding window)
+- Map rate → brightness on a configurable curve (e.g. linear, exponential)
+- Fade brightness back to idle level after configurable timeout
+- Ripple effect: on keypress, briefly boost center zone then propagate outward to left/right
+
+#### Phase 4 — Config & profiles
+- `config.py`: load `~/.config/kbd-pulse/config.toml`
+- Configurable: idle brightness, active brightness, idle color, active color, fade duration, decay rate, animation style
+- Hot-reload config on SIGHUP
+
+#### Phase 5 — Systemd + udev
+- `systemd/kbd-pulse.service`: user-level service, `Restart=on-failure`
+- `udev/99-kbd-pulse.rules`: grant the `input` group write access to `/sys/class/leds/system76::kbd_backlight/*`
+- Install script or `setup_user.sh` hook in `setup_bash`
+
+### Permissions Strategy
+Rather than running as root, use a udev rule to make the sysfs backlight nodes group-writable by `input`. The user already needs to be in the `input` group for evdev access, so no new group is needed.
+
+```
+ACTION=="add", SUBSYSTEM=="leds", KERNEL=="system76::kbd_backlight", \
+  RUN+="/bin/chgrp input /sys%p/brightness /sys%p/color_*", \
+  RUN+="/bin/chmod g+w /sys%p/brightness /sys%p/color_*"
+```
