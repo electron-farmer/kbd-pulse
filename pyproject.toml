@@ -1,11 +1,18 @@
 [project]
 name = "kbd-pulse"
-version = "0.1.0"
+version = "0.2.0"
 description = "Reactive RGB keyboard backlight daemon for System76 laptops"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "evdev",
+]
+
+[dependency-groups]
+dev = [
+    "coverage[toml]>=7.10.0",
+    "mypy>=1.18.0",
+    "ruff>=0.13.0",
 ]
 
 [project.scripts]
@@ -14,6 +21,42 @@ kbd-pulse = "kbd_pulse.__main__:main"
 [tool.uv]
 package = true
 
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = ["E501"]
+
+[tool.mypy]
+python_version = "3.13"
+files = ["kbd_pulse"]
+ignore_missing_imports = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = true
+strict_optional = true
+no_implicit_optional = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+
+[tool.coverage.run]
+branch = true
+source = ["kbd_pulse"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 85
+
 [build-system]
 requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["kbd_pulse"]
