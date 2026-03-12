@@ -1,0 +1,13 @@
+[Unit]
+Description=kbd-pulse default keyboard profile
+After=default.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/git/kbd-pulse
+ExecStart=%h/.local/bin/uv run kbd-pulse
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target

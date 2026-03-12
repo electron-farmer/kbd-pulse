@@ -45,6 +45,46 @@ class AnimatorTests(unittest.TestCase):
         _, color_b = profile.state_at(5.0)
         self.assertNotEqual(color_a, color_b)
 
+    def test_keypress_accelerates_hue_rotation(self) -> None:
+        base = DefaultProfile(
+            hue_speed_degrees_per_second=10.0,
+            hue_speed_boost_per_keypress=25.0,
+            hue_speed_boost_decay_seconds=10.0,
+            start_time=0.0,
+        )
+        accelerated = DefaultProfile(
+            hue_speed_degrees_per_second=10.0,
+            hue_speed_boost_per_keypress=25.0,
+            hue_speed_boost_decay_seconds=10.0,
+            start_time=0.0,
+        )
+
+        base.state_at(1.0)
+        base_hue_before = base.hue_degrees
+        base.state_at(2.0)
+        base_delta = (base.hue_degrees - base_hue_before) % 360.0
+
+        accelerated.state_at(1.0)
+        accel_hue_before = accelerated.hue_degrees
+        accelerated.register_keypress(1.0)
+        accelerated.state_at(2.0)
+        accel_delta = (accelerated.hue_degrees - accel_hue_before) % 360.0
+
+        self.assertGreater(accel_delta, base_delta)
+
+    def test_keypress_applies_immediate_hue_jump(self) -> None:
+        profile = DefaultProfile(
+            hue_speed_degrees_per_second=0.0,
+            hue_speed_boost_per_keypress=0.0,
+            hue_jump_per_keypress_degrees=20.0,
+            start_time=0.0,
+        )
+        profile.state_at(1.0)
+        before = profile.hue_degrees
+        profile.register_keypress(1.0)
+        after = profile.hue_degrees
+        self.assertEqual((after - before) % 360.0, 20.0)
+
     def test_run_default_profile_applies_frames(self) -> None:
         backlight = FakeBacklight()
         profile = DefaultProfile(

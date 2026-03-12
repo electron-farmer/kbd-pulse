@@ -9,10 +9,14 @@ from kbd_pulse.input_watcher import DEFAULT_KEYBOARD_NAME, InputWatcher
 from kbd_pulse.self_test import run_backlight_self_test
 from kbd_pulse.zone_diagnostics import run_slow_zone_diagnostics
 
-DEFAULT_BASE_BRIGHTNESS = 90
-DEFAULT_KEYPRESS_BOOST = 110
+DEFAULT_BASE_BRIGHTNESS = 70
+DEFAULT_KEYPRESS_BOOST = 170
 DEFAULT_FADE_SECONDS = 2.0
 DEFAULT_HUE_SPEED = 8.0
+DEFAULT_HUE_BOOST_PER_KEYPRESS = 40.0
+DEFAULT_HUE_BOOST_DECAY = 3.0
+DEFAULT_HUE_BOOST_MAX = 320.0
+DEFAULT_HUE_JUMP_PER_KEYPRESS = 18.0
 DEFAULT_FRAME_INTERVAL = 0.05
 
 
@@ -40,13 +44,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--base-brightness",
         type=int,
         default=DEFAULT_BASE_BRIGHTNESS,
-        help="idle brightness level 0-255 (default: 90)",
+        help="idle brightness level 0-255 (default: 70)",
     )
     run_parser.add_argument(
         "--keypress-boost",
         type=int,
         default=DEFAULT_KEYPRESS_BOOST,
-        help="brightness boost applied on each keypress (default: 110)",
+        help="brightness boost applied on each keypress (default: 170)",
     )
     run_parser.add_argument(
         "--fade-seconds",
@@ -59,6 +63,30 @@ def build_parser() -> argparse.ArgumentParser:
         type=float,
         default=DEFAULT_HUE_SPEED,
         help="color drift speed in hue degrees per second (default: 8.0)",
+    )
+    run_parser.add_argument(
+        "--hue-boost-per-keypress",
+        type=float,
+        default=DEFAULT_HUE_BOOST_PER_KEYPRESS,
+        help="extra hue speed added per keypress in deg/s (default: 40.0)",
+    )
+    run_parser.add_argument(
+        "--hue-boost-decay",
+        type=float,
+        default=DEFAULT_HUE_BOOST_DECAY,
+        help="seconds for keypress hue boost to decay (default: 3.0)",
+    )
+    run_parser.add_argument(
+        "--hue-boost-max",
+        type=float,
+        default=DEFAULT_HUE_BOOST_MAX,
+        help="max accumulated keypress hue boost in deg/s (default: 320.0)",
+    )
+    run_parser.add_argument(
+        "--hue-jump",
+        type=float,
+        default=DEFAULT_HUE_JUMP_PER_KEYPRESS,
+        help="instant hue jump per keypress in degrees (default: 18.0)",
     )
     run_parser.add_argument(
         "--frame-interval",
@@ -233,6 +261,12 @@ def command_run(backlight: KeyboardBacklight, args: argparse.Namespace) -> int:
     keypress_boost = getattr(args, "keypress_boost", DEFAULT_KEYPRESS_BOOST)
     fade_seconds = getattr(args, "fade_seconds", DEFAULT_FADE_SECONDS)
     hue_speed = getattr(args, "hue_speed", DEFAULT_HUE_SPEED)
+    hue_boost_per_keypress = getattr(
+        args, "hue_boost_per_keypress", DEFAULT_HUE_BOOST_PER_KEYPRESS
+    )
+    hue_boost_decay = getattr(args, "hue_boost_decay", DEFAULT_HUE_BOOST_DECAY)
+    hue_boost_max = getattr(args, "hue_boost_max", DEFAULT_HUE_BOOST_MAX)
+    hue_jump = getattr(args, "hue_jump", DEFAULT_HUE_JUMP_PER_KEYPRESS)
     frame_interval = getattr(args, "frame_interval", DEFAULT_FRAME_INTERVAL)
 
     watcher = InputWatcher(device_name=device_name)
@@ -241,6 +275,10 @@ def command_run(backlight: KeyboardBacklight, args: argparse.Namespace) -> int:
         keypress_boost=keypress_boost,
         fade_seconds=fade_seconds,
         hue_speed_degrees_per_second=hue_speed,
+        hue_speed_boost_per_keypress=hue_boost_per_keypress,
+        hue_speed_boost_decay_seconds=hue_boost_decay,
+        hue_speed_boost_max=hue_boost_max,
+        hue_jump_per_keypress_degrees=hue_jump,
     )
     runtime = ProfileRuntimeConfig(frame_interval_sec=frame_interval)
     run_default_profile(backlight, watcher.keypress_timestamps(), profile, runtime=runtime)
