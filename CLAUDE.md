@@ -27,8 +27,8 @@ gh pr view                               # check existing PR status
 ## Commands
 
 ```bash
-# Install dependencies
-uv sync
+# Install dependencies (SETUPTOOLS_USE_DISTUTILS=local required for evdev on Python 3.13)
+SETUPTOOLS_USE_DISTUTILS=local uv sync
 
 # Run the daemon
 uv run kbd-pulse

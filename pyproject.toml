@@ -1,0 +1,19 @@
+[project]
+name = "kbd-pulse"
+version = "0.1.0"
+description = "Reactive RGB keyboard backlight daemon for System76 laptops"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "evdev",
+]
+
+[project.scripts]
+kbd-pulse = "kbd_pulse.__main__:main"
+
+[tool.uv]
+package = true
+
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
