@@ -3,10 +3,17 @@ from __future__ import annotations
 import argparse
 from collections.abc import Sequence
 
+from kbd_pulse.animator import DefaultProfile, ProfileRuntimeConfig, run_default_profile
 from kbd_pulse.backlight import KeyboardBacklight, Zone
 from kbd_pulse.input_watcher import DEFAULT_KEYBOARD_NAME, InputWatcher
 from kbd_pulse.self_test import run_backlight_self_test
 from kbd_pulse.zone_diagnostics import run_slow_zone_diagnostics
+
+DEFAULT_BASE_BRIGHTNESS = 90
+DEFAULT_KEYPRESS_BOOST = 110
+DEFAULT_FADE_SECONDS = 2.0
+DEFAULT_HUE_SPEED = 8.0
+DEFAULT_FRAME_INTERVAL = 0.05
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -17,8 +24,48 @@ def build_parser() -> argparse.ArgumentParser:
         help="override keyboard backlight sysfs path for testing",
     )
 
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    subparsers = parser.add_subparsers(dest="command", required=False)
+    parser.set_defaults(command="run")
 
+    run_parser = subparsers.add_parser(
+        "run",
+        help="run the default profile: keypress boost + fade + slow color drift",
+    )
+    run_parser.add_argument(
+        "--device-name",
+        default=DEFAULT_KEYBOARD_NAME,
+        help="exact evdev device name to match",
+    )
+    run_parser.add_argument(
+        "--base-brightness",
+        type=int,
+        default=DEFAULT_BASE_BRIGHTNESS,
+        help="idle brightness level 0-255 (default: 90)",
+    )
+    run_parser.add_argument(
+        "--keypress-boost",
+        type=int,
+        default=DEFAULT_KEYPRESS_BOOST,
+        help="brightness boost applied on each keypress (default: 110)",
+    )
+    run_parser.add_argument(
+        "--fade-seconds",
+        type=float,
+        default=DEFAULT_FADE_SECONDS,
+        help="seconds for brightness to decay toward base after keypress (default: 2.0)",
+    )
+    run_parser.add_argument(
+        "--hue-speed",
+        type=float,
+        default=DEFAULT_HUE_SPEED,
+        help="color drift speed in hue degrees per second (default: 8.0)",
+    )
+    run_parser.add_argument(
+        "--frame-interval",
+        type=float,
+        default=DEFAULT_FRAME_INTERVAL,
+        help="seconds per animation frame (default: 0.05)",
+    )
     subparsers.add_parser("status", help="show detected zones and current values")
 
     set_parser = subparsers.add_parser("set", help="set brightness and/or color")
@@ -180,6 +227,26 @@ def command_watch_input(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_run(backlight: KeyboardBacklight, args: argparse.Namespace) -> int:
+    device_name = getattr(args, "device_name", DEFAULT_KEYBOARD_NAME)
+    base_brightness = getattr(args, "base_brightness", DEFAULT_BASE_BRIGHTNESS)
+    keypress_boost = getattr(args, "keypress_boost", DEFAULT_KEYPRESS_BOOST)
+    fade_seconds = getattr(args, "fade_seconds", DEFAULT_FADE_SECONDS)
+    hue_speed = getattr(args, "hue_speed", DEFAULT_HUE_SPEED)
+    frame_interval = getattr(args, "frame_interval", DEFAULT_FRAME_INTERVAL)
+
+    watcher = InputWatcher(device_name=device_name)
+    profile = DefaultProfile(
+        base_brightness=base_brightness,
+        keypress_boost=keypress_boost,
+        fade_seconds=fade_seconds,
+        hue_speed_degrees_per_second=hue_speed,
+    )
+    runtime = ProfileRuntimeConfig(frame_interval_sec=frame_interval)
+    run_default_profile(backlight, watcher.keypress_timestamps(), profile, runtime=runtime)
+    return 0
+
+
 def command_self_test(backlight: KeyboardBacklight, args: argparse.Namespace) -> int:
     run_backlight_self_test(
         backlight,
@@ -232,6 +299,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
+        if args.command == "run":
+            backlight = (
+                KeyboardBacklight()
+                if args.sysfs_path is None
+                else KeyboardBacklight(sysfs_path=args.sysfs_path)
+            )
+            return command_run(backlight, args)
         if args.command == "status":
             backlight = (
                 KeyboardBacklight()

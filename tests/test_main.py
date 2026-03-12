@@ -66,6 +66,71 @@ class MainCliTests(unittest.TestCase):
         self.assertIn("1: 1.250000", output)
         self.assertIn("2: 2.500000", output)
 
+    def test_run_command(self) -> None:
+        called = []
+
+        def fake_run(backlight, args):
+            del backlight
+            called.append(args.command)
+            return 0
+
+        with patch("kbd_pulse.__main__.command_run", fake_run):
+            code = main(["--sysfs-path", str(self.sysfs_path), "run"])
+
+        self.assertEqual(code, 0)
+        self.assertEqual(called, ["run"])
+
+    def test_default_command_is_run(self) -> None:
+        called = []
+
+        def fake_run(backlight, args):
+            del backlight
+            called.append(
+                (
+                    args.command,
+                    getattr(args, "device_name", None),
+                    getattr(args, "base_brightness", None),
+                    getattr(args, "keypress_boost", None),
+                )
+            )
+            return 0
+
+        with patch("kbd_pulse.__main__.command_run", fake_run):
+            code = main(["--sysfs-path", str(self.sysfs_path)])
+
+        self.assertEqual(code, 0)
+        self.assertEqual(called, [("run", None, None, None)])
+
+    def test_default_command_executes_run_with_fallback_defaults(self) -> None:
+        seen = {}
+
+        class FakeWatcher:
+            def __init__(self, device_name: str):
+                seen["device_name"] = device_name
+
+            def keypress_timestamps(self):
+                return iter(())
+
+        def fake_run_default_profile(_backlight, _keypress_stream, profile, *, runtime):
+            seen["base_brightness"] = profile.base_brightness
+            seen["keypress_boost"] = profile.keypress_boost
+            seen["fade_seconds"] = profile.fade_seconds
+            seen["hue_speed"] = profile.hue_speed_degrees_per_second
+            seen["frame_interval"] = runtime.frame_interval_sec
+            return 0
+
+        with patch("kbd_pulse.__main__.InputWatcher", FakeWatcher):
+            with patch("kbd_pulse.__main__.run_default_profile", fake_run_default_profile):
+                code = main(["--sysfs-path", str(self.sysfs_path)])
+
+        self.assertEqual(code, 0)
+        self.assertEqual(seen["device_name"], "AT Translated Set 2 keyboard")
+        self.assertEqual(seen["base_brightness"], 90)
+        self.assertEqual(seen["keypress_boost"], 110)
+        self.assertEqual(seen["fade_seconds"], 2.0)
+        self.assertEqual(seen["hue_speed"], 8.0)
+        self.assertEqual(seen["frame_interval"], 0.05)
+
     def test_self_test_command(self) -> None:
         called: list[tuple[int, int, float, float, str, bool]] = []
 
