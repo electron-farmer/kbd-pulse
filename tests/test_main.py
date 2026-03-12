@@ -168,6 +168,47 @@ class MainCliTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(called, [(210, 1.2, 10, 0.2, 0.6, "global", False, False)])
 
+    def test_set_requires_value(self) -> None:
+        stdout = StringIO()
+        with redirect_stdout(stdout):
+            code = main(["--sysfs-path", str(self.sysfs_path), "set"])
+        self.assertEqual(code, 2)
+        self.assertIn("set requires at least one", stdout.getvalue())
+
+    def test_status_with_no_zones(self) -> None:
+        empty = self.sysfs_path / "empty"
+        empty.mkdir()
+        (empty / "brightness").write_text("90\n")
+        stdout = StringIO()
+        with redirect_stdout(stdout):
+            code = main(["--sysfs-path", str(empty), "status"])
+        self.assertEqual(code, 0)
+        self.assertIn("zones: none detected", stdout.getvalue())
+
+    def test_zone_diagnose_verbose_enables_logger(self) -> None:
+        called = []
+
+        def fake_zone_diagnostics(backlight, **kwargs):
+            del backlight
+            called.append(kwargs["log"] is not None)
+            kwargs["log"]("verbose enabled")
+            return [(Zone.LEFT,)]
+
+        stdout = StringIO()
+        with patch("kbd_pulse.__main__.run_slow_zone_diagnostics", fake_zone_diagnostics):
+            with redirect_stdout(stdout):
+                code = main(
+                    [
+                        "--sysfs-path",
+                        str(self.sysfs_path),
+                        "zone-diagnose",
+                        "--verbose",
+                    ]
+                )
+        self.assertEqual(code, 0)
+        self.assertEqual(called, [True])
+        self.assertIn("[diag] verbose enabled", stdout.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -7,7 +7,6 @@ from typing import Protocol
 
 from evdev import InputDevice, ecodes, list_devices
 
-
 DEFAULT_KEYBOARD_NAME = "AT Translated Set 2 keyboard"
 
 
@@ -57,7 +56,10 @@ class InputWatcher:
             device = self.open_device(device_path)
             try:
                 for event in device.read_loop():
-                    if getattr(event, "type", None) == ecodes.EV_KEY and getattr(event, "value", None) == 1:
+                    if (
+                        getattr(event, "type", None) == ecodes.EV_KEY
+                        and getattr(event, "value", None) == 1
+                    ):
                         emitted += 1
                         yield self.clock()
                         if max_events is not None and emitted >= max_events:

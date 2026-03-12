@@ -71,8 +71,8 @@ def detect_linked_zones_with_probe(
             if other == source:
                 continue
             if after[other] != "000000":
-                edge = tuple(sorted((source, other), key=lambda z: z.value))
-                edges.add(edge)
+                ordered = sorted((source, other), key=lambda z: z.value)
+                edges.add((ordered[0], ordered[1]))
 
     for zone, color in pre_probe_colors.items():
         backlight.set_zone_color(zone, color)

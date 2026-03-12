@@ -1,6 +1,7 @@
 import unittest
+from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import Iterator
+from unittest.mock import patch
 
 from kbd_pulse.input_watcher import InputWatcher, ecodes
 
@@ -91,6 +92,45 @@ class InputWatcherTests(unittest.TestCase):
         self.assertEqual(sleeps, [0.25])
         self.assertTrue(first.closed)
         self.assertTrue(second.closed)
+
+    def test_waits_when_device_not_found(self) -> None:
+        sleeps: list[float] = []
+
+        def fake_sleep(seconds: float) -> None:
+            sleeps.append(seconds)
+            raise RuntimeError("stop")
+
+        watcher = InputWatcher(
+            list_device_paths=lambda: [],
+            sleep=fake_sleep,
+            scan_interval_sec=0.75,
+        )
+        with self.assertRaises(RuntimeError):
+            next(watcher.keypress_timestamps(max_events=1))
+        self.assertEqual(sleeps, [0.75])
+
+    def test_default_get_device_name_closes_device(self) -> None:
+        class DeviceForName:
+            def __init__(self, _path: str):
+                self.name = "AT Translated Set 2 keyboard"
+                self.closed = False
+
+            def close(self) -> None:
+                self.closed = True
+
+        created: list[DeviceForName] = []
+
+        def build(path: str) -> DeviceForName:
+            device = DeviceForName(path)
+            created.append(device)
+            return device
+
+        with patch("kbd_pulse.input_watcher.InputDevice", build):
+            watcher = InputWatcher(list_device_paths=lambda: [])
+            name = watcher._default_get_device_name("/dev/input/event9")
+
+        self.assertEqual(name, "AT Translated Set 2 keyboard")
+        self.assertTrue(created[0].closed)
 
 
 if __name__ == "__main__":

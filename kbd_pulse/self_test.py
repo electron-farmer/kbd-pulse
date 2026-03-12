@@ -4,8 +4,7 @@ import colorsys
 import time
 from collections.abc import Callable
 
-from kbd_pulse.backlight import KeyboardBacklight, Zone
-
+from kbd_pulse.backlight import KeyboardBacklight
 
 REGION_TEST_COLORS = ("FF0000", "00FF00", "0000FF", "FFFFFF")
 

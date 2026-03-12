@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import argparse
-from typing import Sequence
+from collections.abc import Sequence
 
 from kbd_pulse.backlight import KeyboardBacklight, Zone
 from kbd_pulse.input_watcher import DEFAULT_KEYBOARD_NAME, InputWatcher
@@ -200,7 +200,10 @@ def command_zone_diagnose(backlight: KeyboardBacklight, args: argparse.Namespace
     print("phase 3/3: linked-zone probes")
     log = None
     if args.verbose:
-        log = lambda msg: print(f"[diag] {msg}")
+        def verbose_log(msg: str) -> None:
+            print(f"[diag] {msg}")
+
+        log = verbose_log
 
     groups = run_slow_zone_diagnostics(
         backlight,

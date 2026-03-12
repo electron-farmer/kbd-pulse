@@ -3,7 +3,6 @@ from __future__ import annotations
 from enum import StrEnum
 from pathlib import Path
 
-
 DEFAULT_SYSFS_PATH = Path("/sys/class/leds/system76::kbd_backlight")
 
 
