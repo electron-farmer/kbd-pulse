@@ -1,0 +1,2 @@
+ACTION=="add", SUBSYSTEM=="leds", KERNEL=="system76::kbd_backlight", \
+  RUN+="/bin/sh -c 'chgrp input /sys%p/brightness /sys%p/color_* && chmod g+w /sys%p/brightness /sys%p/color_*'"
